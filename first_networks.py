@@ -8,7 +8,7 @@ ip_match = re.compile(r'\d+\.\d+\.\d+\.\d+')
 
 def traceroute(domain):
 
-    # Тут нужен токен для сайта ipinfo.io
+    # Проверка токена
     try:
         with open('token.txt') as f:
             token = f.read()
@@ -18,6 +18,7 @@ def traceroute(domain):
 
     cmd_output = run_tracert(domain)
 
+    # Запускаем tracert в cmd. Если в первой строке нет IP, значит, что-то пошло не так
     try:
         ip_start = ip_match.search(cmd_output[1])
         ip_start = ip_start.group(0)
@@ -25,6 +26,7 @@ def traceroute(domain):
         print("Не удается определить IP-адрес домена " + domain)
         return
 
+    # Вывод из консоли переводим в таблицу
     print_table(cmd_output, ip_start, domain, token)
 
 
