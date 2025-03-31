@@ -47,7 +47,7 @@ def check_ipinfo(ip: str, token:str):
     req = requests.get(f'https://ipinfo.io/{ip}?token={token}').json()
 
     if "error" in req.keys():
-        print("Сервис ipinfo не отвечает...")
+        print("Неверный токен ipinfo, сервис не отвечает")
         return False
 
     return True
@@ -72,7 +72,7 @@ def print_table(output, start, domain, token):
             req = requests.get(f'https://ipinfo.io/{ip}?token={token}').json()
 
             if "error" in req.keys():
-                print("Сервис ipinfo не отвечает...")
+                print("Неверный токен ipinfo, сервис не отвечает")
                 return
 
             print_line(req, line_number, ip)
