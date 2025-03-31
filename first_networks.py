@@ -5,6 +5,7 @@ import sys
 import requests
 
 ip_match = re.compile(r'\d+\.\d+\.\d+\.\d+')
+hidden_match = re.compile(r'\*\s+\*\s+\*')
 
 def traceroute(domain):
 
@@ -16,6 +17,8 @@ def traceroute(domain):
         print("Для работы нужен файл 'token.txt' с токеном для сайта ipinfo.io")
         return
 
+    print("Запускаем tracert...")
+
     cmd_output = run_tracert(domain)
 
     # Запускаем tracert в cmd. Если в первой строке нет IP, значит, что-то пошло не так
@@ -24,10 +27,30 @@ def traceroute(domain):
         ip_start = ip_start.group(0)
     except IndexError:
         print("Не удается определить IP-адрес домена " + domain)
+        print("Возможно, нет доступа к интернету")
+        return
+
+    # Сразу * * * - нет сети
+    if hidden_match.search(cmd_output[3]):
+        print("Нет доступа к сети")
+        return
+
+    # Проверка, отвечает ли сервис ipinfo
+    if not check_ipinfo(ip_start, token):
         return
 
     # Вывод из консоли переводим в таблицу
     print_table(cmd_output, ip_start, domain, token)
+
+
+def check_ipinfo(ip: str, token:str):
+    req = requests.get(f'https://ipinfo.io/{ip}?token={token}').json()
+
+    if "error" in req.keys():
+        print("Сервис ipinfo не отвечает...")
+        return False
+
+    return True
 
 
 def run_tracert(domain):
@@ -37,10 +60,10 @@ def run_tracert(domain):
 
 
 def print_table(output, start, domain, token):
-    hidden_match = re.compile(r'\*\s+\*\s+\*')
 
     print("№" + 6 * " " + "IP" + 19 * " " + "AS" + 11 * " " + "Country")
     line_number = 1
+
     for line in output[2:]:
 
         get_ip = ip_match.search(line)
@@ -48,14 +71,18 @@ def print_table(output, start, domain, token):
             ip = get_ip.group(0)
             req = requests.get(f'https://ipinfo.io/{ip}?token={token}').json()
 
+            if "error" in req.keys():
+                print("Сервис ipinfo не отвечает...")
+                return
+
             print_line(req, line_number, ip)
             line_number = line_number + 1
 
             if ip == start:
                 print(domain + " достигнут")
+                return
 
-        n = hidden_match.search(line)
-        if n:
+        if hidden_match.search(line):
             print(line_number, "    ", "* * * - конец пути")
             break
 
