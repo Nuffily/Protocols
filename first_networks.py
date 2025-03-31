@@ -5,7 +5,7 @@ import sys
 import requests
 
 ip_match = re.compile(r'\d+\.\d+\.\d+\.\d+')
-hidden_match = re.compile(r'\*\s+\*\s+\*')
+triple_star_match = re.compile(r'\*\s+\*\s+\*')
 
 def traceroute(domain):
 
@@ -31,7 +31,7 @@ def traceroute(domain):
         return
 
     # Сразу * * * - нет сети
-    if hidden_match.search(cmd_output[3]):
+    if triple_star_match.search(cmd_output[3]):
         print("Нет доступа к сети")
         return
 
@@ -82,7 +82,7 @@ def print_table(output, start, domain, token):
                 print(domain + " достигнут")
                 return
 
-        if hidden_match.search(line):
+        if triple_star_match.search(line):
             print(line_number, "    ", "* * * - конец пути")
             break
 
