@@ -21,7 +21,7 @@ def traceroute(domain):
 
     cmd_output = run_tracert(domain)
 
-    # Запускаем tracert в cmd. Если в первой строке нет IP, значит, что-то пошло не так
+    # Запускаем tracert в cmd. Если в первой строке нет IP, значит, его не получилось разрешить
     try:
         ip_start = ip_match.search(cmd_output[1])
         ip_start = ip_start.group(0)
