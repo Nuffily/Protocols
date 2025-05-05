@@ -8,7 +8,6 @@ ip_match = re.compile(r'\d+\.\d+\.\d+\.\d+')
 triple_star_match = re.compile(r'\*\s+\*\s+\*')
 
 def traceroute(domain):
-
     # Проверка токена
     try:
         with open('token.txt') as f:
@@ -43,7 +42,7 @@ def traceroute(domain):
     print_table(cmd_output, ip_start, domain, token)
 
 
-def check_ipinfo(ip: str, token:str):
+def check_ipinfo(ip: str, token: str):
     req = requests.get(f'https://ipinfo.io/{ip}?token={token}').json()
 
     if "error" in req.keys():
@@ -60,7 +59,6 @@ def run_tracert(domain):
 
 
 def print_table(output, start, domain, token):
-
     print("№" + 6 * " " + "IP" + 19 * " " + "AS" + 11 * " " + "Country")
     line_number = 1
 
@@ -111,7 +109,7 @@ def __main__():
         print(__main__.__doc__)
     else:
         traceroute(sys.argv[1])
-
+7
 
 if __name__ == '__main__':
     __main__()
