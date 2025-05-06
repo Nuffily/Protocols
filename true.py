@@ -1,6 +1,8 @@
 import socket
 import threading
 import time
+from itertools import chain
+
 
 class Entry:
 
@@ -31,6 +33,7 @@ class Entry:
                     int(self.len).to_bytes(2, 'big') +  # Длина данных (4 байта для IPv4)
                     ip_bytes  # IP-адрес
             )
+
         elif self.type in (2, 12):
             encoded_name = b''.join([bytes([len(part)]) + part.encode() for part in self.name.split('.')]) + b'\x00'
 
@@ -61,15 +64,28 @@ class Entry:
 class Answerer:
 
     @staticmethod
-    def get(question: bytes, entry):
+    def get(question: bytes, entries: list[Entry]):
 
-        answer = question[0:2] + b'\x81' +  b'\x80' + question[4:6] + len(entry).to_bytes(2, byteorder='big') + question[8:]
+        answer = question[0:2] + b'\x81' +  b'\x80' + question[4:6] + len(entries).to_bytes(2, byteorder='big') + question[8:]
 
-        for i in entry:
+        for i in entries:
             answer = answer + i.get()
 
         return answer
 
+    @staticmethod
+    def return_empty(question: bytes):
+        return question[0:2] + b'\x81' + b'\x83' + question[4:]
+
+    # @staticmethod
+    # def create_request(question: bytes, entries: list[Entry]):
+    #
+    #     answer = question[0:4] + len(entries).to_bytes(2, byteorder='big') + question[6:]
+    #
+    #     for i in entries:
+    #         answer = answer + i.get()
+    #
+    #     return answer
 
 
 class ServerCache:
@@ -224,292 +240,122 @@ class PackageParser:
                     cache.ip_to_name[current] = [entry]
 
         return self._next_byte
-    #
-    # def get_authority(self):
-    #     entry_count = self._message[8] * 256 + self._message[9]
-    #
-    #     for i in range(entry_count):
-    #
-    #         current = self.read_as_referencable()[:-1]
-    #         req_type, req_class = self.get_type_and_class()
-    #         ans_ttl, ans_len = self.get_ttl_and_len()
-    #
-    #         ans = ""
-    #
-    #         if req_type in (1, 28):
-    #             ans = self.read_as_address(ans_len)
-    #
-    #
-    #         elif req_type in (12, 2):
-    #             ans = self.read_as_referencable()
-    #
-    #         print(current, req_type, req_class, ans_ttl, ans_len, ans[:-1])
-    #         entry = Entry(req_type, current, ans_len, ans[:-1], time.time() + ans_ttl)
-    #
-    #         if req_type in (1, 28):
-    #             cache.name_to_ip[current] = entry
-    #         elif req_type in (12, 2):
-    #             cache.ip_to_name[current] = entry
-    #
-    #     return self._next_byte
-    #
-    # def get_additional(self):
-    #     entry_count = self._message[10] * 256 + self._message[11]
-    #
-    #     for i in range(entry_count):
-    #
-    #         current = self.read_as_referencable()[:-1]
-    #         req_type, req_class = self.get_type_and_class()
-    #         ans_ttl, ans_len = self.get_ttl_and_len()
-    #
-    #         ans = ""
-    #
-    #         if req_type in (1, 28):
-    #             ans = self.read_as_address(ans_len)
-    #
-    #
-    #         elif req_type in (12, 2):
-    #             ans = self.read_as_referencable()
-    #
-    #         print(current, req_type, req_class, ans_ttl, ans_len, ans[:-1])
-    #         entry = Entry(req_type, current, ans_len, ans[:-1], time.time() + ans_ttl)
-    #
-    #         if req_type in (1, 28):
-    #             cache.name_to_ip[current] = entry
-    #         elif req_type in (12, 2):
-    #             cache.ip_to_name[current] = entry
-    #
-    #     return self._next_byte
 
-# def get_requests(zxc: bytes):
-#     message = bytearray(zxc)
-#     count = message[4] * 256 + message[5]
-#
-#     next_byte = 12
-#
-#     for i in range(count):
-#
-#         current = ""
-#
-#         while True:
-#
-#             leng: int = int(message[next_byte])
-#
-#             if not leng:
-#                 break
-#
-#             elif not leng & 0xc0:
-#
-#                 current += zxc[next_byte + 1:next_byte + 1 + leng].decode('utf-8', errors='replace') + "."
-#
-#                 next_byte += 1 + leng
-#
-#             else:
-#                 # for j in range(leng * 256 + message[current_byte + 1]):
-#                 leng_2 = message[(leng * 256 + message[next_byte + 1])] & 0x3f
-#
-#                 current += zxc[(leng * 256 + message[next_byte + 1]) + 1:(leng * 256 + message[
-#                     next_byte + 1]) + 1 + leng_2].decode('utf-8', errors='replace') + "."
-#                 next_byte += 1 + leng
-#
-#         next_byte += 1
-#         req_type = int.from_bytes(message[next_byte:next_byte + 3])
-#         req_type = message[next_byte] * 256 + message[next_byte + 1]
-#         next_byte += 2
-#         req_class = int.from_bytes(message[next_byte + 4:next_byte + 7])
-#         req_class = message[next_byte] * 256 + message[next_byte + 1]
-#
-#         print(current[:-1], req_type, req_class)
-#
-#         print(next_byte, 12312)
-#         return next_byte + 2
-#
-#
-# def get_answers(zxc: bytes, start: int):
-#     message = bytearray(zxc)
-#     count = message[6] * 256 + message[7]
-#
-#     current_byte = start
-#
-#     for i in range(count):
-#
-#         current = ""
-#
-#         while True:
-#             leng: int = int(message[current_byte])
-#
-#             if not leng:
-#                 current_byte += 1
-#                 break
-#
-#             elif leng & 0xc0 != 0xc0:
-#
-#                 current += zxc[current_byte + 1:current_byte + 1 + leng].decode('utf-8', errors='replace') + "."
-#
-#                 current_byte += 1 + leng
-#
-#             else:
-#                 # for j in range(leng * 256 + message[current_byte + 1]):
-#                 ref = (leng * 256 + message[current_byte + 1]) & 0x3fff
-#                 while True:
-#                     leng_2 = message[ref]
-#                     if not leng_2:
-#                         break
-#
-#                     current += zxc[ref + 1:ref + 1 + leng_2].decode('utf-8', errors='replace') + "."
-#                     ref = ref + 1 + leng_2
-#
-#                 current_byte += 2
-#                 break
-#
-#         req_type = int.from_bytes(message[current_byte:current_byte + 3])
-#         req_type = message[current_byte] * 256 + message[current_byte + 1]
-#         current_byte += 2
-#         req_class = int.from_bytes(message[current_byte + 4:current_byte + 7])
-#         req_class = message[current_byte] * 256 + message[current_byte + 1]
-#         current_byte += 2
-#         ans_ttl = int.from_bytes(message[current_byte + 8:current_byte + 15])
-#         ans_ttl = (message[current_byte] * 256 + message[current_byte + 1]) * 256**2 + message[current_byte + 2] * 256 + message[current_byte + 3]
-#         current_byte += 4
-#         ans_rlen = message[current_byte] * 256 + message[current_byte + 1]
-#         current_byte += 2
-#         ans = ""
-#         for j in range(ans_rlen):
-#             ans += str(message[current_byte]) + "."
-#             current_byte += 1
-#
-#         print(current[:-1], req_type, req_class, ans_ttl, ans_rlen, ans[:-1])
-#
-#
-#     return current_byte
-#
-#
-# def get_authority(zxc: bytes, start: int):
-#     message = bytearray(zxc)
-#     count = message[8] * 256 + message[9]
-#
-#     current_byte = start
-#
-#     for i in range(count):
-#
-#         current = ""
-#
-#         while True:
-#             leng: int = int(message[current_byte])
-#
-#             if not leng:
-#                 current_byte += 1
-#                 break
-#
-#             elif leng & 0xc0 != 0xc0:
-#
-#                 current += zxc[current_byte + 1:current_byte + 1 + leng].decode('utf-8', errors='replace') + "."
-#
-#                 current_byte += 1 + leng
-#
-#             else:
-#                 # for j in range(leng * 256 + message[current_byte + 1]):
-#                 ref = (leng * 256 + message[current_byte + 1]) & 0x3fff
-#                 while True:
-#                     leng_2 = message[ref]
-#                     if not leng_2:
-#                         break
-#
-#                     current += zxc[ref + 1:ref + 1 + leng_2].decode('utf-8', errors='replace') + "."
-#                     ref = ref + 1 + leng_2
-#
-#                 current_byte += 2
-#                 break
-#
-#         req_type = int.from_bytes(message[current_byte:current_byte + 3])
-#         req_type = message[current_byte] * 256 + message[current_byte + 1]
-#         current_byte += 2
-#         req_class = int.from_bytes(message[current_byte + 4:current_byte + 7])
-#         req_class = message[current_byte] * 256 + message[current_byte + 1]
-#         current_byte += 2
-#         ans_ttl = int.from_bytes(message[current_byte + 8:current_byte + 15])
-#         ans_ttl = (message[current_byte] * 256 + message[current_byte + 1]) * 256**2 + message[current_byte + 2] * 256 + message[current_byte + 3]
-#         current_byte += 4
-#         ans_rlen = message[current_byte] * 256 + message[current_byte + 1]
-#         current_byte += 2
-#         ans = ""
-#         for j in range(ans_rlen):
-#             ans += str(message[current_byte]) + "."
-#             current_byte += 1
-#
-#         print(current[:-1], req_type, req_class, ans_ttl, ans_rlen, ans)
-#
-#     return current_byte
+    def read_entire_answer(self):
+        self.get_requests()
+        self.get_answers(6)
+        self.get_answers(8)
+        self.get_answers(10)
+
 
 def handle(sock, data, addr, cache):
-    print(sock)
+    # print(sock)
     print(data)
-    print(addr)
+    # print(addr)
 
     original_parser = PackageParser(data, cache)
 
     requests = original_parser.get_requests()
+    req_count = len(requests)
+    answers = []
 
     stra = data[12:].decode('ascii', errors='replace')
 
-    # if "in-addrarpa" in stra:
-    #     ans = bytearray(data)
-    #     ans[2] = 129
-    #     ans[3] = 128
-    #     ans[7] = 1
-    #     sock.sendto(ans, addr)
-
     if "IGD_Rostelecom" in stra:
-        sock.sendto(data, addr)
-    else:
+        sock.sendto(Answerer.return_empty(data), addr)
 
+    else:
         for req in requests:
             if req[0] == "1.0.0.127.in-addr.arpa":
-                sock.sendto(data, addr)
+                sock.sendto(Answerer.return_empty(data), addr)
                 return
 
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as upstream:
+        # for req in requests:
+        #     if req[1] in (1, 28) and req[0] in cache.name_to_ip:
+        #         cache.clean()
+        #         a = cache.name_to_ip[req[0]]
+        #         sock.sendto(Answerer.get(data, a), addr)
+        #     elif req[1] in (2, 12) and req[0] in cache.ip_to_name:
+        #         cache.clean()
+        #         a = cache.ip_to_name[req[0]]
+        #         sock.sendto(Answerer.get(data, a), addr)
+        #     else:
+        #         break
+
+        for req in requests:
+            if req[1] in (1, 28) and req[0] in cache.name_to_ip:
+                cache.clean()
+                answer = cache.name_to_ip[req[0]]
+                answers.append(answer)
+                requests.remove(req)
+            elif req[1] in (2, 12) and req[0] in cache.ip_to_name:
+                cache.clean()
+                answer = cache.ip_to_name[req[0]]
+                answers.append(answer)
+                requests.remove(req)
+
+        # if len(requests):
+        #     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as upstream:
+        #         upstream.sendto(data, ('8.8.8.8', 53))
+        #
+        #         response_data, _ = upstream.recvfrom(512)
+        #         print(response_data)
+        #
+        #         response_parser = PackageParser(response_data, cache)
+        #
+        #     r = response_parser.get_requests()
+        #     an = response_parser.get_answers(6)
+        #     an = response_parser.get_answers(8)
+        #     an = response_parser.get_answers(10)
+        #
+        #     for req in requests:
+        #         if req[1] in (1, 28) and req[0] in cache.name_to_ip:
+        #             a = cache.name_to_ip[req[0]]
+        #
+        #             cache.clean()
+        #             sock.sendto(Answerer.get(data, a), addr)
+        #         elif req[1] in (2, 12) and req[0] in cache.ip_to_name:
+        #             cache.clean()
+        #             a = cache.ip_to_name[req[0]]
+        #             sock.sendto(Answerer.get(data, a), addr)
+        if req_count == len(requests):
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as upstream:
+                upstream.sendto(data, ('8.8.8.8', 53))
+
+                response_data, _ = upstream.recvfrom(512)
+
+                response_parser = PackageParser(response_data, cache)
+
+            response_parser.read_entire_answer()
+            sock.sendto(response_data, addr)
+            return
+
+        elif len(requests):
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as upstream:
+                upstream.sendto(data, ('8.8.8.8', 53))
+
+                response_data, _ = upstream.recvfrom(512)
+                # print(response_data)
+
+                response_parser = PackageParser(response_data, cache)
+
+            response_parser.read_entire_answer()
+
             for req in requests:
                 if req[1] in (1, 28) and req[0] in cache.name_to_ip:
                     cache.clean()
-                    a = cache.name_to_ip[req[0]]
-                    sock.sendto(Answerer.get(data, a), addr)
+                    answer = cache.name_to_ip[req[0]]
+                    answers.append(answer)
+                    requests.remove(req)
                 elif req[1] in (2, 12) and req[0] in cache.ip_to_name:
                     cache.clean()
-                    a = cache.ip_to_name[req[0]]
-                    sock.sendto(Answerer.get(data, a), addr)
-                else:
-                    break
+                    answer = cache.ip_to_name[req[0]]
+                    answers.append(answer)
+                    requests.remove(req)
 
-            else:
-                print("all")
-                return
-
-            upstream.sendto(data, ('8.8.8.8', 53))
-
-            response_data, _ = upstream.recvfrom(512)
-            print(response_data)
-
-            parser = PackageParser(response_data, cache)
-
-            requests = parser.get_requests()
-            an = parser.get_answers(6)
-            an = parser.get_answers(8)
-            an = parser.get_answers(10)
-
-            for req in requests:
-                if req[1] in (1, 28) and req[0] in cache.name_to_ip:
-                    a = cache.name_to_ip[req[0]]
-
-                    cache.clean()
-                    sock.sendto(Answerer.get(data, a), addr)
-                elif req[1] in (2, 12) and req[0] in cache.ip_to_name:
-                    cache.clean()
-                    a = cache.ip_to_name[req[0]]
-                    sock.sendto(Answerer.get(data, a), addr)
-
-            print(cache.ip_to_name)
-            print(cache.name_to_ip)
+        print(answers)
+        print(len(answers))
+        sock.sendto(Answerer.get(data, list(chain(*answers))), addr)
 
 
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
