@@ -318,7 +318,7 @@ def handle(sock, data, addr, cache):
             sock.sendto(Answerer.return_empty(data), addr)
             return
 
-    print(f"Запрос от {addr}")
+    print(f"Запрос от {addr}.")
 
     for req in requests:
         if req[1] in (1, 28) and req[0] in cache.name_to_ip:
@@ -344,7 +344,7 @@ def handle(sock, data, addr, cache):
                         requests.remove(req)
 
     if req_count == len(requests):
-        print("Данных в кэше нет")
+        print("Данных в кэше нет, идем к старшему брату")
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as upstream:
             upstream.sendto(data, ('8.8.8.8', 53))
 
@@ -357,7 +357,7 @@ def handle(sock, data, addr, cache):
             return
 
     elif len(requests):
-        print("Данных в кэше не хватает")
+        print("Данных в кэше не хватает, добираем у старшего брата")
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as upstream:
             upstream.sendto(data, ('8.8.8.8', 53))
 
@@ -380,7 +380,7 @@ def handle(sock, data, addr, cache):
                 requests.remove(req)
 
     else:
-        print("Все есть в кэше")
+        print("Все есть в кэше, нам никто не нужен")
 
     sock.sendto(Answerer.create_answer(data, list(answers)), addr)
 
