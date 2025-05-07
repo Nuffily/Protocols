@@ -13,69 +13,53 @@ class Entry:
         self.data = e_data
         self.expires = expires
 
-    def get(self):
+    def get(self) -> bytes:
         """Превращает запись в поток байтов для секции ответов"""
 
-        if self.type in (1, 28):
+        if self.type in (1, 2, 12, 28):
             encoded_name = b''.join([bytes([len(part)]) + part.encode() for part in self.name.split('.')]) + b'\x00'
 
-            # Преобразуем IP в байты
-            data = bytes(map(int, self.data.split('.')))
+            if self.type in (1, 28):
+                r_data = bytes(map(int, self.data.split('.')))
+            else:
+                r_data = b''.join([bytes([len(part)]) + part.encode() for part in self.data.split('.')]) + b'\x00'
 
-            ttl = self.expires - time.time()
-            if ttl < 0:
-                return b''
-
-            return (
-                    encoded_name +  # Имя
-                    (b'\x00\x01' if self.type == 1 else b'\x00\x1c') +  # Тип A (1)
-                    b'\x00\x01' +  # Класс IN (1)
-                    int(ttl).to_bytes(4, 'big') +  # TTL
-                    int(self.len).to_bytes(2, 'big') +  # Длина данных (4 байта для IPv4)
-                    data  # IP-адрес
-            )
-
-        elif self.type in (2, 12):
-            encoded_name = b''.join([bytes([len(part)]) + part.encode() for part in self.name.split('.')]) + b'\x00'
-
-            data = b''.join([bytes([len(part)]) + part.encode() for part in self.data.split('.')]) + b'\x00'
-
-            if self.expires == 0:
+            if self.expires - time.time() <= 0:
                 ttl = 100
             else:
                 ttl = self.expires - time.time()
 
-            if ttl < 0:
-                return b''
-
-            leng = 1
-            for b in  self.data.split('.'):
-                leng += len(b) + 1
+            if self.type in (1, 28):
+                r_type = (b'\x00\x01' if self.type == 1 else b'\x00\x1c')
+            else:
+                r_type = (b'\x00\x02' if self.type == 2 else b'\x00\x0c')
 
             return (
-                    encoded_name +  # Имя
-                    (b'\x00\x02' if self.type == 2 else b'\x00\x0c') +  # Тип A (1)
-                    b'\x00\x01' +  # Класс IN (1)
-                    int(ttl).to_bytes(4, 'big') +  # TTL
-                    int(leng).to_bytes(2, 'big') +  # Длина данных (4 байта для IPv4)
-                    data  # IP-адрес
+                    encoded_name +
+                    r_type +
+                    b'\x00\x01' +
+                    int(ttl).to_bytes(4, 'big') +
+                    int(self.len).to_bytes(2, 'big') +
+                    r_data
             )
 
-class Answerer:
+        return b''
+
+class PackageFormer:
 
     @staticmethod
-    def create_answer(question: bytes, entries: list[Entry]):
+    def create_answer(question: bytes, entries: list[Entry]) -> bytes:
         """Собирает пакет ответа с entries в секции ответов"""
 
         answer = question[0:2] + b'\x81' +  b'\x80' + question[4:6] + len(entries).to_bytes(2, byteorder='big') + question[8:]
 
-        for i in entries:
-            answer = answer + i.get()
+        for entry in entries:
+            answer = answer + entry.get()
 
         return answer
 
     @staticmethod
-    def return_empty(question: bytes):
+    def return_empty(question: bytes) -> bytes:
         """Собирает пакет без ответов с кодом ошибки 3 (нет ответа)"""
         return question[0:2] + b'\x81' + b'\x83' + question[4:]
 
@@ -88,7 +72,7 @@ class ServerCache:
         self._cleaner_thread = threading.Thread(target=self.clean_loop)
         self._cleaner_thread.start()
 
-    def clean(self):
+    def clean(self) -> None:
         """Пробегается по всем записям и удаляет старевшие"""
 
         print("Чистка")
@@ -104,14 +88,14 @@ class ServerCache:
                     self.name_to_ip[name].remove(entry)
                     print(f"Удалена {name} {entry.data}")
 
-    def clean_loop(self):
+    def clean_loop(self) -> None:
         """Раз в 30 секунд запускает чистку"""
 
         while self._running:
             time.sleep(30)
             self.clean()
 
-    def save(self, filename = 'dns_cache.pickle'):
+    def save(self, filename = 'dns_cache.pickle') -> None:
         print("Сохраняем...")
         self._running = False
         self._cleaner_thread.join()
@@ -119,7 +103,7 @@ class ServerCache:
         with open(filename, 'wb') as f:
             pickle.dump((self.ip_to_name, self.name_to_ip), f)
 
-    def upload(self, filename = 'dns_cache.pickle'):
+    def upload(self, filename = 'dns_cache.pickle') -> None:
         try:
             with open(filename, 'rb') as f:
                 dicts = pickle.load(f)
@@ -134,6 +118,27 @@ class ServerCache:
             self.name_to_ip = dict()
             print("Существующий кэш не найден")
 
+    def seek_request(self, request: (str, int)) -> list[Entry]:
+        """Ищет ответ на запрос в кэше и возвращает список ответов"""
+        result = []
+
+        if request[1] in (1, 28) and request[0] in cache.name_to_ip:
+            cache.clean()
+            answer = cache.name_to_ip[request[0]]
+
+            for entry in answer:
+                if entry.type == request[1]:
+                    result.append(entry)
+
+        elif request[1] in (2, 12) and request[0] in cache.ip_to_name:
+            cache.clean()
+            answer = cache.ip_to_name[request[0]]
+
+            for entry in answer:
+                if entry.type == request[1]:
+                    result.append(entry)
+
+        return result
 
 class PackageParser:
 
@@ -267,6 +272,10 @@ class PackageParser:
             elif req_type in (12, 2):
                 ans = self.read_as_referencable()
 
+                ans_len = 1
+                for domain in ans[:-1].split('.'):
+                    ans_len += len(domain) + 1
+
             entry = Entry(req_type, current, ans_len, ans[:-1], time.time() + ans_ttl)
 
             if req_type in (1, 28):
@@ -303,8 +312,6 @@ class PackageParser:
         self.get_answers(8)
         self.get_answers(10)
 
-
-
 def handle(sock, data, addr, cache):
     """Решает ДНС запрос"""
     original_parser = PackageParser(data, cache)
@@ -315,33 +322,18 @@ def handle(sock, data, addr, cache):
 
     for req in requests:
         if req[0] == "1.0.0.127.in-addr.arpa" or "IGD_Rostelecom" in req[0]:
-            sock.sendto(Answerer.return_empty(data), addr)
+            sock.sendto(PackageFormer.return_empty(data), addr)
             return
 
     print(f"Запрос от {addr}.")
 
     for req in requests:
-        if req[1] in (1, 28) and req[0] in cache.name_to_ip:
-            cache.clean()
-            answer = cache.name_to_ip[req[0]]
+        answer = cache.seek_request(req)
+        if answer:
+            requests.remove(req)
 
-            for entry in answer:
-                if entry.type == req[1]:
-                    answers.append(entry)
-
-                    if req in requests:
-                        requests.remove(req)
-
-        elif req[1] in (2, 12) and req[0] in cache.ip_to_name:
-            cache.clean()
-            answer = cache.ip_to_name[req[0]]
-
-            for entry in answer:
-                if entry.type == req[1]:
-                    answers.append(entry)
-
-                    if req in requests:
-                        requests.remove(req)
+        for entry in answer:
+            answers.append(entry)
 
     if req_count == len(requests):
         print("Данных в кэше нет, идем к старшему брату")
@@ -368,21 +360,17 @@ def handle(sock, data, addr, cache):
         response_parser.read_entire_answer()
 
         for req in requests:
-            if req[1] in (1, 28) and req[0] in cache.name_to_ip:
-                cache.clean()
-                answer = cache.name_to_ip[req[0]]
-                answers.append(answer)
+            answer = cache.seek_request(req)
+            if answer:
                 requests.remove(req)
-            elif req[1] in (2, 12) and req[0] in cache.ip_to_name:
-                cache.clean()
-                answer = cache.ip_to_name[req[0]]
-                answers.append(answer)
-                requests.remove(req)
+
+            for entry in answer:
+                answers.append(entry)
 
     else:
         print("Все есть в кэше, нам никто не нужен")
 
-    sock.sendto(Answerer.create_answer(data, list(answers)), addr)
+    sock.sendto(PackageFormer.create_answer(data, list(answers)), addr)
 
 if __name__ == "__main__":
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
