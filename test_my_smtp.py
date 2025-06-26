@@ -1,9 +1,6 @@
 import pytest
-import os
 from ssl_smtp_client import MySMTP
 
-
-# Фикстура для создания временных файлов для тестов
 class TestMySMPT:
     @pytest.fixture
     def temp_message_file(self, tmp_path):

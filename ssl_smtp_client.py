@@ -178,7 +178,6 @@ def main():
     headers_file = sys.argv[2]
     message_file = sys.argv[3]
 
-    # Запуск отправки
     server = MySMTP(login_file)
     server.send(headers_file, message_file)
 
