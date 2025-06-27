@@ -18,7 +18,7 @@ class MySMTP:
         self.client_addr = ('smtp.yandex.ru', 465)
         self.DOT_LINE_PATTERN = re.compile(r'\s*\.+\s*')
 
-    def send(self, configure_file: str, message_file: str):
+    def send(self, configure_file: str ,message_file: str):
         """
         Отправляет письмо, ориентируясь на значения в configure_file и message_file
         configure_file - json, со следующими полями
@@ -72,7 +72,13 @@ class MySMTP:
 
             ssl_client.send((message + '\r\n').encode('utf-8'))
 
-            print(self.request(ssl_client, "."))
+            result = self.request(ssl_client, ".")
+            if "Unrecognized" in result:
+                print("Ошибка соединения с сервером, проверьте входные данные")
+                return
+            else:
+                print(result)
+
             print(self.request(ssl_client, "QUIT"))
 
     def request(self, socket, request):
