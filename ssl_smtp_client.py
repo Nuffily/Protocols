@@ -46,13 +46,13 @@ class MySMTP:
 
         return message_body
 
-    def connect(self, client: socket, sender: str, to: str) -> SSLSocket:
+    def connect(self, client: socket, sender: str, rcpts: str) -> SSLSocket:
         """Начинает сессию с почтовым сервером, и возвращает сокет, обернутый в SSL"""
         client.connect(self.client_addr)
         ssl_context = ssl.create_default_context()
         ssl_client = ssl_context.wrap_socket(client, server_hostname=self.client_addr[0])
-
         ssl_client.recv(1024)
+
         self.request(ssl_client, f'ehlo {self.username}@ya.ru')
 
         base64login = base64.b64encode(self.username.encode()).decode()
@@ -64,7 +64,9 @@ class MySMTP:
         self.request(ssl_client, base64password)
         self.request(ssl_client, f'MAIL FROM:{sender}')
 
-        self.request(ssl_client, f"RCPT TO:{to}")
+        for rcpt in rcpts:
+            self.request(ssl_client, f"RCPT TO:{rcpt}")
+
         self.request(ssl_client, 'DATA')
 
         return ssl_client
@@ -113,19 +115,22 @@ class MySMTP:
             headers = json.load(json_file)
 
         sender = headers["From"]
-        to = headers["To"]
+        rcpts = headers["To"]
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
 
-            ssl_client = self.connect(client, sender, to)
+            ssl_client = self.connect(client, sender, rcpts)
             message_headers = ''
 
             for key, val in headers.items():
                 if key == "Subject":
                     message_headers += f'{key}: =?UTF-8?B?{base64.b64encode(val.encode('utf-8')).decode('utf-8')}?=\r\n'
-                elif key in ("From", "To"):
+                elif key == "From":
                     message_headers += f'{key}: {val}\r\n'
+                elif key == "To":
+                    message_headers += f'{key}: {", ".join(val)}\r\n'
 
+            print(message_headers)
             message = message_headers + "MIME-Version: 1.0\r\n"
             message_body = self.get_message(message_file)
 

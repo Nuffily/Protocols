@@ -63,7 +63,7 @@ configure.json:
     "From": "demadhmax@yandex.ru",
     "To": "maximkakaryakin@yandex.ru",
     "Subject": "Смешные картинки",
-    "Files": ["Caban.jpg", "Cat).jpg"]
+    "Files": ["demonstration/Caban.jpg", "demonstration/Cat).jpg"]
 
 
 Результат:
@@ -86,5 +86,27 @@ configure.json:
 
 Результат:
 ![demonstration/img.png](demonstration/img.png)
+
+## 4. Несколько получателей
+
+msg.txt:
+
+    "From": "maximkakaryakin@yandex.ru",
+    "To": ["maximkakaryakin@yandex.ru", "demadhmax@yandex.ru"],
+    "Subject": "Это я",
+    "Files": ["demonstration/Caban.jpg"]
+    .
+
+configure.json:
+
+    "From": "maximkakaryakin@yandex.ru",
+    "To": ["maximkakaryakin@yandex.ru", "demadhmax@yandex.ru"],
+    "Subject": "Это я",
+    "Files": ["demonstration/Caban.jpg"]
+
+
+Результат:
+![demonstration/img_4.png](demonstration/img_4.png)
+![demonstration/img_5.png](demonstration/img_5.png)
 
 
