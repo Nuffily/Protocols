@@ -46,6 +46,7 @@ configure.json:
 
 
 Результат:
+
 ![demonstration/img_2.png](demonstration/img_2.png)
 
 ## 2. Фотография (С пятью точками в отдельной строке)
@@ -67,6 +68,7 @@ configure.json:
 
 
 Результат:
+
 ![demonstration/img_3.png](demonstration/img_3.png)
 
 
@@ -85,6 +87,7 @@ configure.json:
 
 
 Результат:
+
 ![demonstration/img.png](demonstration/img.png)
 
 ## 4. Несколько получателей
@@ -106,6 +109,7 @@ configure.json:
 
 
 Результат:
+
 ![demonstration/img_4.png](demonstration/img_4.png)
 ![demonstration/img_5.png](demonstration/img_5.png)
 
